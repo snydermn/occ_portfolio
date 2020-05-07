@@ -1,0 +1,45 @@
+---
+title: "prospective_diversity_restoration_analysis"
+author: "MNSnyder"
+date: "12/19/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Management decisions for OC coho are based on the following escapement thresholds: 
+Critical	14,988
+Low	24073
+Medium	63350
+High	95025
+Full seeding	126,700
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(MASS)
+```
+
+```{r import and format escapement data}
+OC_COHO_ESU_Escapement <- read.csv("D:/Resiliency/Marcia/Data/Coho_Abundance/OC_COHO_ESU_Escapement.csv")
+escapement <- OC_COHO_ESU_Escapement[,1:2]
+names(escapement)<-c("Year", "Escapement")
+```
+
+
+```{r estimate log normal distribution}
+hist(escapement$Escapement, breaks=14, freq=F)
+#hist(log(escapement$Escapement), breaks=15)
+fit<-fitdistr(escapement$Escapement,"log-normal")$estimate
+lines(dlnorm(0:max(escapement$Escapement),fit[1],fit[2]), lwd=3)
+fit
+
+
+```
+
+
+
+
+
+

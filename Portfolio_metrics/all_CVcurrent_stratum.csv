@@ -1,0 +1,22 @@
+,pops_names,CVcurrent_LOO_V,CVcurrent_LOO_V_lakes,PopulationLong,Stratum,Cluster
+1,Alsea,0.510114672,0.549702433,Alsea River,MidCoast,Group5
+2,Beaver,0.515736458,0.554667291,Beaver Creek,MidCoast,Group2
+3,Coos,0.525874651,0.571225956,Coos Bay,MidSouth,Group2
+4,Coquille,0.517665464,0.561314669,Coquille River,MidSouth,Group5
+5,Floras,0.516741196,0.556313765,Floras Creek,MidSouth,Group3
+6,L. Umpqua,0.516363771,0.558102668,Lower Umpqua River,Umpqua,Group2
+7,M. Umpqua,0.513063799,0.553302715,Middle Umpqua,Umpqua,Group4
+8,Necanicum,0.513799023,0.552429504,Necanicum River,NorthCoast,Group2
+9,Nehalem,0.519809131,0.563481308,Nehalem River,NorthCoast,Group2
+10,Nestucca,0.513771914,0.552691592,Nestucca River,NorthCoast,Group1
+11,N. Umpqua,0.517083607,0.55670361,North Umpqua,Umpqua,Group4
+12,Salmon,0.513019217,0.551186775,Salmon River,MidCoast,Group5
+13,Siletz,0.508194595,0.54739503,Siletz River,MidCoast,Group5
+14,Siltcoos,0.523422308,NA,Siltcoos River (Lake),Lakes,Group2
+15,Siuslaw,0.510742259,0.553211925,Siuslaw River,MidCoast,Group1
+16,Sixes,0.514773061,0.553015783,Sixes River,MidSouth,NoGroup
+17,S. Umpqua,0.515652061,0.557663906,South Umpqua,Umpqua,Group5
+18,Tahkenitch,0.521412031,NA,Tahkenitch Lake,Lakes,Group3
+19,Tenmile,0.532791837,NA,Tenmile Lake,Lakes,NoGroup
+20,Tillamook,0.507200826,0.546316432,Tillamook Bay,NorthCoast,Group4
+21,Yaquina,0.509557361,0.549163055,Yaquina River,MidCoast,Group1

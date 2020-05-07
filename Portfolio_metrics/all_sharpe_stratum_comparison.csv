@@ -1,0 +1,22 @@
+,pops_names,SHARPES_LOO_V,SHARPES_LOO_V_lakes,PopulationLong,Stratum,Cluster,ESU Sharpe Ratio without population
+1,Alsea,14.04796692,12.56781077,Alsea River,MidCoast,Group5,14.549
+2,Beaver,13.59634933,12.13105331,Beaver Creek,MidCoast,Group2,14.196
+3,Coos,13.47274233,11.97376214,Coos Bay,MidSouth,Group2,13.926
+4,Coquille,13.39375156,11.90066214,Coquille River,MidSouth,Group5,13.729
+5,Floras,13.4738763,12.01405804,Floras Creek,MidSouth,Group3,14.128
+6,Lower.Umpqua,13.41531986,11.9276996,Lower Umpqua River,Umpqua,Group2,13.925
+7,Middle.Umpqua,13.6285934,12.14038069,Middle Umpqua,Umpqua,Group4,14.206
+8,Necanicum,13.82747588,12.35952636,Necanicum River,NorthCoast,Group2,14.16
+9,Nehalem,13.69319349,12.20021142,Nehalem River,NorthCoast,Group2,14.254
+10,Nestucca,13.82794773,12.35354375,Nestucca River,NorthCoast,Group1,14.281
+11,North.Umpqua,13.52885811,12.06061717,North Umpqua,Umpqua,Group4,14.277
+12,Salmon,14.08103792,12.63053436,Salmon River,MidCoast,Group5,14.091
+13,Siletz,14.09579087,12.60963193,Siletz River,MidCoast,Group5,14.257
+14,Siltcoos,13.24382634,NA,Siltcoos River (Lake),Lakes,Group2,14.566
+15,Siuslaw,13.74301535,12.24719289,Siuslaw River,MidCoast,Group1,13.962
+16,Sixes,13.43826133,12.02380487,Sixes River,MidSouth,NoGroup,14.463
+17,South.Umpqua,13.5629019,12.0632307,South Umpqua,Umpqua,Group5,14.205
+18,Tahkenitch,13.27428892,NA,Tahkenitch Lake,Lakes,Group3,14.021
+19,Tenmile,13.16322486,NA,Tenmile Lake,Lakes,NoGroup,13.703
+20,Tillamook,13.93253976,12.44667339,Tillamook Bay,NorthCoast,Group4,14.408
+21,Yaquina,13.72712352,12.23820806,Yaquina River,MidCoast,Group1,14.288

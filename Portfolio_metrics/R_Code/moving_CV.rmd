@@ -1,0 +1,292 @@
+---
+title: "Moving Window CV"
+author: "MNSnyder"
+date: "11/21/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+
+```{r import abundance}
+# 1990-2016
+OC_COHO_ABUNDANCE <- read.csv("D:/Resiliency/Marcia/Data/Coho_Abundance/OC_COHO_ABUNDANCE.csv")
+AbundanceGroups <- read.csv("D:/Resiliency/Matt's Work/Data/Spreadsheets/AbundanceGroups.csv")
+```
+
+```{r subset and transform}
+#names(OC_COHO_ABUNDANCE)
+# drop unnecessary columns
+columns_for_keep<-c("Year","Alsea","Beaver","Coos","Coquille", "Floras","Lower.Umpqua","Middle.Umpqua","Necanicum","Nehalem","Nestucca"     
+, "North.Umpqua","Salmon","Siletz","Siltcoos","Siuslaw","Sixes"        
+, "South.Umpqua","Tahkenitch","Tenmile","Tillamook","Yaquina")
+abundance<-dplyr::select(OC_COHO_ABUNDANCE, one_of(columns_for_keep))
+# drop years before 1994
+# leaves 1994-2016 = 22 years
+abundance<-abundance[which(abundance$Year >1993),]
+# drop year column
+abundance<-abundance[,-1]
+# ln(x+1) transform
+# transform abundance column subset
+#abundance.plus.1<-abundance # create copy of abundance df
+#abundance.plus.1[,2:22]<-abundance[,2:22] + 1 # add 1
+#abundance.log<-abundance.plus.1 # create copy of abundance plus 1 df
+#abundance.log<-log(abundance.plus.1[,2:22]) # natural log transform df
+```
+
+```{r CVcurrent, eval=TRUE}
+#### calculate denomenator of CVcurrent ####
+
+# mean per population from 1994-2016
+pop_means<-colMeans(abundance)
+# sum mean per population
+sum_mean_pops<-sum(pop_means)
+
+#### calculate numerator of CVcurrent ####
+
+# calculate variance per population, 2 represents axis(columns)
+pop_variance<-apply(abundance,2,var)
+# get total esu variance
+esu_var_total<-sum(pop_variance)
+
+# function to convert covariance from sample (n-1) to population(n)
+cov.pop <- function(x,y=NULL) {
+   cov(x,y)*(NROW(x)-1)/NROW(x)
+}
+
+# calculate covariance matrix
+cov.mat<-cov.pop(abundance)
+
+# calculate sum of covariances
+sum_cov<-NULL
+temp_sum_temp<-NULL
+for (i in 1:(length(pop_variance)-1)){
+  temp_sum<-sum(cov.mat[i,(i+1):dim(cov.mat)[2]])
+  temp_sum_temp[i]<-temp_sum 
+  sum_cov<-sum(temp_sum_temp)
+}
+
+# calculate CVcurrent
+CVcurrent<-( sqrt(esu_var_total + sum_cov) ) / sum_mean_pops
+```
+
+```{r define CVcurrent loo function, echo=FALSE}
+CVcurrent_loo<-function(df){
+  #### calculate denomenator of CVcurrent ####
+# mean per population from 1994-2016
+pop_means<-colMeans(df)
+# sum mean per population
+sum_mean_pops<-sum(pop_means)
+
+#### calculate numerator of CVcurrent ####
+# calculate variance per population, 2 represents axis(columns)
+pop_variance<-apply(df,2,var)
+# get total esu variance
+esu_var_total<-sum(pop_variance)
+# function to convert covariance from sample (n-1) to population(n)
+cov.pop <- function(x,y=NULL) {
+   cov(x,y)*(NROW(x)-1)/NROW(x)
+}
+# 
+# calculate covariance matrix
+cov.mat<-cov.pop(df)
+
+# calculate sum of covariances
+sum_cov<-NULL
+temp_sum_temp<-NULL
+for (i in 1:(length(pop_variance)-1)){
+  temp_sum<-sum(cov.mat[i,(i+1):dim(cov.mat)[2]]) # IS THIS RIGHT? SHOULD JUST DROP COLUMN OF POP?
+  temp_sum_temp[i]<-temp_sum 
+  sum_cov<-sum(temp_sum_temp)
+}
+
+# calculate CVcurrent
+CVcurrent<-( sqrt(esu_var_total + sum_cov) ) / sum_mean_pops
+}
+
+```
+
+```{r calculate CVcurrent_loo 8, eval=TRUE, echo=FALSE}
+
+CVcurrent_LOO_V<-NULL # set up empty vector for results
+#no.populations<-dim(abundance)[2]
+# calculate sharpe ratio for all populations minus 1
+dropmin<-0
+dropmax<-7
+for (i in seq(from=1,to=15,by=1)){
+  dropmin<-dropmin + 1
+  dropmax<-dropmax + 1
+  temp_df<-abundance[dropmin:dropmax,]
+  temp_out<-CVcurrent_loo(temp_df)
+  CVcurrent_LOO_V[dropmin]<-temp_out
+}
+CVcurrent_LOO_V
+
+year_seq<-seq(from=1994, to=2008, by=1)
+year_range_seq<-c("1994-2002", "1995-2003", "1996-2004", "1997-2005", "1998-2006", "1999-2007", "2000-2008",
+                  "2001-2009", "2002-2010", "2003-2011", "2004-2012", "2005-2013", "2006-2014", "2007-2015",
+                  "2008-2016")
+
+CV_moving_8<-cbind.data.frame(year_seq, CVcurrent_LOO_V, year_range_seq)
+
+```
+
+```{r plot moving CV 8}
+out1<-ggplot(CV_moving_8, aes(x=year_range_seq, y=CVcurrent_LOO_V)) + geom_point( colour="blue", size=5)+
+  ylab("CV") + xlab("Moving window range (8 years)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 12),
+        axis.text.x = element_text(angle = 90,size=12), 
+        axis.text.y = element_text(size=12), 
+        legend.title=element_blank())
+out1
+```
+
+```{r calculate CVcurrent_loo 9, eval=TRUE, echo=FALSE}
+
+CVcurrent_LOO_V<-NULL # set up empty vector for results
+#no.populations<-dim(abundance)[2]
+# calculate sharpe ratio for all populations minus 1
+dropmin<-0
+dropmax<-8
+for (i in seq(from=1,to=14,by=1)){
+  dropmin<-dropmin + 1
+  dropmax<-dropmax + 1
+  temp_df<-abundance[dropmin:dropmax,]
+  temp_out<-CVcurrent_loo(temp_df)
+  CVcurrent_LOO_V[dropmin]<-temp_out
+}
+CVcurrent_LOO_V
+
+year_seq<-seq(from=1994, to=2007, by=1)
+year_range_seq<-c("1994-2003", "1995-2004", "1996-2005", "1997-2006", "1998-2007", "1999-2008", "2000-2009",
+                  "2001-2010", "2002-2011", "2003-2012", "2004-2013", "2005-2014", "2006-2015", "2007-2016")
+
+CV_moving_9<-cbind.data.frame(year_seq, CVcurrent_LOO_V, year_range_seq)
+
+```
+
+```{r plot moving CV 9}
+out1<-ggplot(CV_moving_9, aes(x=year_range_seq, y=CVcurrent_LOO_V)) + geom_point( colour="blue", size=5)+
+  ylab("CV") + xlab("Moving window range (9 years)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 12),
+        axis.text.x = element_text(angle = 90,size=12), 
+        axis.text.y = element_text(size=12), 
+        legend.title=element_blank())
+out1
+```
+
+```{r define CVnull function, echo=FALSE}
+CVnull_f<-function(df){
+  #### calculate denomenator of CVcurrent ####
+# mean per population from 1994-2016
+pop_means<-colMeans(abundance)
+
+# sum mean per population
+sum_mean_pops<-sum(pop_means)
+
+#### calculate numerator of CVcurrent ####
+# calculate variance per population, 2 represents axis(columns)
+pop_variance<-apply(df,2,var)
+# get total esu variance
+esu_var_total<-sum(pop_variance)
+# function to convert covariance from sample (n-1) to population(n)
+#cov.pop <- function(x,y=NULL) {
+#   cov(x,y)*(NROW(x)-1)/NROW(x)
+#}
+# 
+# calculate covariance matrix
+#cov.mat<-cov.pop(df)
+
+# calculate sum of covariances
+#sum_cov<-NULL
+#temp_sum_temp<-NULL
+#for (i in 1:(length(pop_variance)-1)){
+#  temp_sum<-sum(cov.mat[i,(i+1):dim(cov.mat)[2]])
+#  temp_sum_temp[i]<-temp_sum 
+#  sum_cov<-sum(temp_sum_temp)
+#}
+
+# calculate CVcurrent
+CVnull<-( sqrt(esu_var_total ) ) / sum_mean_pops
+}
+
+```
+
+
+```{r calculate CVcurrent_loo, eval=TRUE, echo=FALSE}
+
+# CVnull_LOO_V<-NULL # set up empty vector for results
+# no.populations<-dim(abundance)[2]
+# # calculate sharpe ratio for all populations minus 1
+# for (i in 1:no.populations){
+#   temp_df<-abundance[,i]
+#   temp_out<-CVnull_f(temp_df)
+#   CVnull_LOO_V[i]<-temp_out
+# }
+# # combine Sharpe ratio with population left out
+# pops_names<-colnames(abundance) 
+# CVcurrent_df<-data.frame(pops_names, CVnull_LOO_V)
+```
+
+```{r calculate CVnull moving window 9 yrs, eval=TRUE, echo=FALSE}
+
+CVnullw9_V<-NULL # set up empty vector for results
+# calculate sharpe ratio for all populations minus 1
+dropmin<-0
+dropmax<-8
+for (i in seq(from=1,to=14,by=1)){
+  dropmin<-dropmin + 1
+  dropmax<-dropmax + 1
+  temp_df<-abundance[dropmin:dropmax,]
+  temp_out<-CVnull_f(temp_df)
+  CVnullw9_V[dropmin]<-temp_out
+}
+CVnullw9_V
+
+year_seq<-seq(from=1994, to=2007, by=1)
+year_range_seq<-c("1994-2003", "1995-2004", "1996-2005", "1997-2006", "1998-2007", "1999-2008", "2000-2009",
+                  "2001-2010", "2002-2011", "2003-2012", "2004-2013", "2005-2014", "2006-2015", "2007-2016")
+
+Cnull_moving_9<-cbind.data.frame(year_seq, CVnullw9_V, year_range_seq)
+
+```
+
+```{r create table of moving window CV CVnull and DD}
+metrics_p<-merge(CV_moving_9, Cnull_moving_9, by.x="year_seq", by.y="year_seq") 
+metrics_p$DD<-metrics_p$CVcurrent_LOO_V - metrics_p$CVnullw9_V
+# drop unnecessary columns
+metrics_p2<-dplyr::select(metrics_p,  -year_range_seq.y)
+# rename columns
+names(metrics_p2)<-c("year_seq", "CVcurrent", "year_range", "CVnull", "Diversity_deficit")
+# go from wide to long with tidyr
+
+
+metrics_p_long <- metrics_p2 %>% 
+  gather(metric, value, CVcurrent, CVnull, Diversity_deficit)
+metrics_p_long
+metrics_p_long$metric<-as.factor(metrics_p_long$metric)
+```
+
+```{r write out metric table}
+write.csv(metrics_p_long, "D:/Resiliency/Marcia/Data/Portfolio_metrics/R_Code/metrics_DD_CV_CVnull.csv")
+```
+
+
+```{r plot moving metrics all}
+out1<-ggplot(metrics_p_long, aes(x=year_range, y=value, group=metric, colour=metric)) + geom_line( size=1.5)+
+  ylab("Portfolio metrics") + xlab("Moving window range (9 years)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 12),
+        axis.text.x = element_text(angle = 90,size=12), 
+        axis.text.y = element_text(size=12), 
+        legend.title=element_blank())
+out1
+```

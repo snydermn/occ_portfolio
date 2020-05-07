@@ -1,0 +1,222 @@
+---
+title: "OCC CV and Sharpe's Ratio"
+author: "M. Snyder"
+date: "March 23, 2018"
+output: html_document
+editor_options: 
+chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r import abundance, echo=FALSE}
+setwd("E:/Resiliency/Marcia/Data")
+OC_COHO_ABUNDANCE <- read.csv("E:/Resiliency/Marcia/Data/Coho_Abundance/OC_COHO_ABUNDANCE.csv")
+AbundanceGroups <- read.csv("E:/Resiliency/Matt's Work/Data/Spreadsheets/AbundanceGroups.csv")
+```
+
+
+```{r subset and transform}
+#names(OC_COHO_ABUNDANCE)
+# drop unnecessary columns
+columns_for_keep<-c("Year","Alsea","Beaver","Coos","Coquille", "Floras","Lower.Umpqua","Middle.Umpqua","Necanicum","Nehalem","Nestucca"     
+, "North.Umpqua","Salmon","Siletz","Siltcoos","Siuslaw","Sixes"        
+, "South.Umpqua","Tahkenitch","Tenmile","Tillamook","Yaquina")
+abundance<-dplyr::select(OC_COHO_ABUNDANCE, one_of(columns_for_keep))
+# drop years before 1994
+abundance<-abundance[which(abundance$Year >1993),]
+# ln(x+1) transform
+# transform abundance column subset
+abundance.plus.1<-abundance # create copy of abundance df
+abundance.plus.1[,2:22]<-abundance[,2:22] + 1 # add 1
+abundance.log<-abundance.plus.1 # create copy of abundance plus 1 df
+abundance.log<-log(abundance.plus.1[,2:22]) # natural log transform df
+```
+
+```{r sharpe ratio, echo=FALSE}
+#### Calculate numerator of sharpe ratio
+# calculate total ESU production 1994-2016
+esu_totals<-rowSums(abundance.log)
+esu_total<-sum(esu_totals)
+# calculate total population production 1994-2016
+pop_totals<-colSums(abundance.log)
+# calculate population proportional contribution
+pop_contribution<-pop_totals / esu_total
+# mean per population from 1994-2016
+pop_means<-colMeans(abundance.log)
+# calculate weighted individual return
+weighted_returns<-pop_contribution * pop_means
+# sum all individual weighted returns for Up (return part of Sharpe Ratio)
+sharpe_return<-sum(weighted_returns)
+
+#### calculate denominator of sharpe ratio
+pop_variance<-apply(abundance.log,2,var)
+# calculate variance squared
+pop_variance2<-pop_variance * pop_variance
+# pop variance weighted contribution
+pop_var_contribution<-pop_contribution * pop_contribution * pop_variance2
+# get total esu variance
+esu_var_total<-sum(pop_var_contribution)
+# calculate covariance matrix
+cov.mat<-cov(abundance.log)
+# loop to calculate weighted covariance contribution per pair
+cov_weighted<-matrix(9999, nrow=length(pop_contribution), ncol = length(pop_contribution))
+for (i in 1:length(pop_contribution)){
+  for (j in 1:length(pop_contribution)){
+    out_temp<-cov.mat[i,j]
+    pair_temp<-out_temp * pop_contribution[i] * pop_contribution[j]
+    cov_weighted[i,j] <- pair_temp
+  }
+}
+
+## check weighted covariance contribution of each pair
+#0.8795310 * 0.04932383 * 0.04369052
+#cov_weighted[1,2]
+
+# sum up weighted covariance
+sum_cov<-NULL
+temp_sum_temp<-NULL
+for (i in 1:(length(pop_contribution)-1)){
+  temp_sum<-sum(cov_weighted[i,(i+1):dim(cov_weighted)[2]])
+  temp_sum_temp[i]<-temp_sum 
+  sum_cov<-sum(temp_sum_temp)
+}
+
+#### calculate sharpe ratio
+Sharpe_ratio<-sharpe_return / sqrt((esu_var_total + sum_cov))
+```
+
+```{r define sharpe loo function, echo=FALSE}
+sharpes_loo<-function(df){
+#### Calculate numerator of sharpe ratio
+# calculate total ESU production 1994-2016
+esu_totals<-rowSums(df)
+esu_total<-sum(esu_totals)
+# calculate total population production 1994-2016
+pop_totals<-colSums(df)
+# calculate population proportional contribution
+pop_contribution<-pop_totals / esu_total
+# mean per population from 1994-2016
+pop_means<-colMeans(df)
+# calculate weighted individual return
+weighted_returns<-pop_contribution * pop_means
+# sum all individual weighted returns for Up (return part of Sharpe Ratio)
+sharpe_return<-sum(weighted_returns)
+
+#### calculate denominator of sharpe ratio
+pop_variance<-apply(df,2,var)
+# calculate variance squared
+pop_variance2<-pop_variance * pop_variance
+# pop variance weighted contribution
+pop_var_contribution<-pop_contribution * pop_contribution * pop_variance2
+# get total esu variance
+esu_var_total<-sum(pop_var_contribution)
+# calculate covariance matrix
+cov.mat<-cov(df)
+# loop to calculate weighted covariance contribution per pair
+cov_weighted<-matrix(9999, nrow=length(pop_contribution), ncol = length(pop_contribution))
+for (i in 1:length(pop_contribution)){
+  for (j in 1:length(pop_contribution)){
+    out_temp<-cov.mat[i,j]
+    pair_temp<-out_temp * pop_contribution[i] * pop_contribution[j]
+    cov_weighted[i,j] <- pair_temp
+  }
+}
+
+## check weighted covariance contribution of each pair
+#0.8795310 * 0.04932383 * 0.04369052
+#cov_weighted[1,2]
+
+# sum up weighted covariance
+sum_cov<-NULL
+temp_sum_temp<-NULL
+for (i in 1:(length(pop_contribution)-1)){
+  temp_sum<-sum(cov_weighted[i,(i+1):dim(cov_weighted)[2]])
+  temp_sum_temp[i]<-temp_sum 
+  sum_cov<-sum(temp_sum_temp)
+}
+
+#### calculate sharpe ratio
+sharpe_ratio<-sharpe_return / sqrt((esu_var_total + sum_cov))
+  return(sharpe_ratio)
+}
+
+```
+
+```{r test sharpes loo function, include=FALSE}
+
+sharpes_loo(abundance.log) # returns the same value
+```
+
+Create a loop where I leave out one population at a time and rerun. Keep track of sharpe ratio output in matrix. 
+
+```{r calculate sharpes_loo}
+SHARPES_LOO_V<-NULL # set up empty vector for results
+no.populations<-dim(abundance.log)[2]
+# calculate sharpe ratio for all populations minus 1
+for (i in 1:no.populations){
+  temp_df<-abundance.log[,-i]
+  temp_out<-sharpes_loo(temp_df)
+  SHARPES_LOO_V[i]<-temp_out
+}
+# combine Sharpe ratio with population left out
+pops_names<-colnames(abundance.log) 
+sharpes<-data.frame(pops_names, SHARPES_LOO_V)
+```
+
+
+```{r calculate sharpes_loo without lakes}
+# drop lakes from dataframe
+abundance.log2<-dplyr::select(abundance.log, -Tahkenitch, -Tenmile, -Siltcoos)
+# create empty vector for results
+SHARPES_LOO_V_lakes<-NULL
+no.populations<-dim(abundance.log2)[2] 
+#temp<-colnames(abundance.log)
+for (i in 1:no.populations){
+  temp_df<-abundance.log2[,-i]
+  temp_out<-sharpes_loo(temp_df)
+  SHARPES_LOO_V_lakes[i]<-temp_out
+}
+# get population names
+pops_names<-colnames(abundance.log2)
+sharpes_no_lakes<-data.frame(pops_names, SHARPES_LOO_V_lakes)
+
+```
+
+
+```{r combine results, echo=FALSE}
+#names(sharpes)
+#names(sharpes_no_lakes)
+all_sharpe<-merge(sharpes, sharpes_no_lakes, by.x="pops_names", by.y="pops_names", all.x = TRUE)
+```
+
+```{r get stratum for plot, echo=FALSE}
+all_sharpe_stratum<-merge(all_sharpe, AbundanceGroups, by.x="pops_names", by.y="Population")
+
+```
+
+```{r plot sharpe vs. sharpe, echo=FALSE}
+#plot(SHARPES_LOO_V_lakes~SHARPES_LOO_V, data=all_sharpe, pch=19, col="purple", cex=2, xlab="Sharpe Ratio Leave One Out", ylab="Sharpe Ratio w/o Lakes")
+
+apr<-ggplot(data=all_sharpe_stratum,
+            aes(x=SHARPES_LOO_V, y=SHARPES_LOO_V_lakes, colour=Stratum)) +
+    geom_point(size=3)
+apr + labs(title="Sharpe ratio comparison", x="Sharpe Ratio Leave One Out", y="Sharpe Ratio w/o Lakes")
+
+```
+
+```{r write sharpe csv, echo=FALSE}
+write.csv(all_sharpe_stratum, "all_sharpe_stratum.csv")
+```
+
+
+```{r calculate CV, echo=FALSE}
+CV <- function(x) {sd(x) / mean(x)}
+
+```
+
+

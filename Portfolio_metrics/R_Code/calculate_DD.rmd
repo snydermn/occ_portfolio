@@ -1,0 +1,124 @@
+---
+title: "OCC Diversity Deficit"
+author: "MNSnyder"
+date: "11/21/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r import abundance, echo=FALSE}
+OC_COHO_ABUNDANCE <- read.csv("D:/Resiliency/Marcia/Data/Coho_Abundance/OC_COHO_ABUNDANCE.csv")
+AbundanceGroups <- read.csv("D:/Resiliency/Matt's Work/Data/Spreadsheets/AbundanceGroups.csv")
+```
+
+
+```{r subset and transform, echo=FALSE}
+#names(OC_COHO_ABUNDANCE)
+# drop unnecessary columns
+columns_for_keep<-c("Year","Alsea","Beaver","Coos","Coquille", "Floras","Lower.Umpqua","Middle.Umpqua","Necanicum","Nehalem","Nestucca"     
+, "North.Umpqua","Salmon","Siletz","Siltcoos","Siuslaw","Sixes"        
+, "South.Umpqua","Tahkenitch","Tenmile","Tillamook","Yaquina")
+abundance<-dplyr::select(OC_COHO_ABUNDANCE, one_of(columns_for_keep))
+# drop years before 1994
+abundance<-abundance[which(abundance$Year >1993),]
+# drop year column
+abundance<-abundance[,-1]
+```
+
+```{r CVcurrent, eval=TRUE, echo=FALSE}
+#### calculate denomenator of CVcurrent ####
+# mean per population from 1994-2016
+pop_means<-colMeans(abundance)
+# sum mean per population
+sum_mean_pops<-sum(pop_means)
+
+#### calculate numerator of CVcurrent ####
+# calculate variance per population, 2 represents axis(columns)
+pop_variance<-apply(abundance,2,var)
+# get total esu variance
+esu_var_total<-sum(pop_variance)
+# function to convert covariance from sample (n-1) to population(n)
+cov.pop <- function(x,y=NULL) {
+   cov(x,y)*(NROW(x)-1)/NROW(x)
+}
+
+# calculate covariance matrix
+cov.mat<-cov.pop(abundance)
+
+# calculate sum of covariances
+sum_cov<-NULL
+temp_sum_temp<-NULL
+for (i in 1:(length(pop_variance)-1)){
+  temp_sum<-sum(cov.mat[i,(i+1):dim(cov.mat)[2]])
+  temp_sum_temp[i]<-temp_sum 
+  sum_cov<-sum(temp_sum_temp)
+}
+
+# calculate CVcurrent
+CVcurrent<-( sqrt(esu_var_total + sum_cov) ) / sum_mean_pops
+```
+
+
+```{r define CVnull function, echo=FALSE}
+CVnull_f<-function(df){
+  #### calculate denomenator of CVcurrent ####
+# mean per population from 1994-2016
+pop_means<-mean(df)
+# sum mean per population
+sum_mean_pops<-sum(pop_means)
+
+#### calculate numerator of CVcurrent ####
+# calculate variance per population, 2 represents axis(columns)
+pop_variance<-var(df)
+# get total esu variance
+esu_var_total<-sum(pop_variance)
+# function to convert covariance from sample (n-1) to population(n)
+#cov.pop <- function(x,y=NULL) {
+#   cov(x,y)*(NROW(x)-1)/NROW(x)
+#}
+# 
+# calculate covariance matrix
+#cov.mat<-cov.pop(df)
+
+# calculate sum of covariances
+#sum_cov<-NULL
+#temp_sum_temp<-NULL
+#for (i in 1:(length(pop_variance)-1)){
+#  temp_sum<-sum(cov.mat[i,(i+1):dim(cov.mat)[2]])
+#  temp_sum_temp[i]<-temp_sum 
+#  sum_cov<-sum(temp_sum_temp)
+#}
+
+# calculate CVcurrent
+CVnull<-( sqrt(esu_var_total ) ) / sum_mean_pops
+}
+
+```
+
+
+```{r calculate CVcurrent_loo, eval=TRUE, echo=FALSE}
+
+CVnull_LOO_V<-NULL # set up empty vector for results
+no.populations<-dim(abundance)[2]
+# calculate sharpe ratio for all populations minus 1
+for (i in 1:no.populations){
+  temp_df<-abundance[,i]
+  temp_out<-CVnull_f(temp_df)
+  CVnull_LOO_V[i]<-temp_out
+}
+# combine Sharpe ratio with population left out
+pops_names<-colnames(abundance) 
+CVcurrent_df<-data.frame(pops_names, CVnull_LOO_V)
+```
+
+```{r create DD}
+CVcurrent_df$DD<-CVcurrent - CVcurrent_df$CVnull_LOO_V
+```
+
