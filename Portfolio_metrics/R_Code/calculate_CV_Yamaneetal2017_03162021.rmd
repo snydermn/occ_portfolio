@@ -1,7 +1,7 @@
 ---
-title: "OCC CVcurrent"
+title: "OCC CVcurrent and Diversity Deficit"
 author: "M. Snyder"
-date: "May 14, 2019"
+date: "March 16, 2021"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -476,4 +476,5 @@ all<-ggplot(data=all_CV_stratum, aes(pops_names, CV_pops, colour=Stratum)) +geom
 all + labs(x="Population", y="CV") +
   theme(axis.text.x=element_text(angle=90))
 ```
+
 

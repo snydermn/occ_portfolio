@@ -1,0 +1,42 @@
+---
+title: "pie map CV"
+author: "MN Snyder"
+date: "9/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+```
+
+```{r set up directories, echo=FALSE}
+# to run script on different computers specify sys.info()[4] and
+# specify path to model results folder and
+# folder containing look up tables
+
+# Marcia's epa computer -> NOT SET UP
+if(Sys.info()[4]=="LZ2626XMSNYDE02"){
+  indir<-path.expand("D:/")
+  outputdir<-path.expand("D:/")
+  }
+
+# Marcia's Lenovo -> SET UP
+if(Sys.info()[4]=="DESKTOP-KMUP1V2"){
+  indir<-path.expand("C:/Users/snyde/Dropbox/")
+  }
+```
+
+
+#### EXAMPLE CODE ####
+
+library(ggplot2)
+library(scatterpie)
+
+world <- map_data('world')
+p <- ggplot(world, aes(long, lat)) +
+    geom_map(map=world, aes(map_id=region), fill=NA, color="black") +
+    coord_quickmap()
+p + geom_scatterpie(aes(x=long, y=lat, group=region, r=radius),
+                    data=d, cols=LETTERS[1:4], color=NA, alpha=.8) +
+    geom_scatterpie_legend(d$radius, x=-160, y=-55)

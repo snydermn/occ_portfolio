@@ -1,0 +1,382 @@
+---
+title: "Portfolio metrics and watershed characteristics"
+author: "M. Snyder"
+date: "Mar. 17, 2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+chunk_output_type: console
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(vegan)
+library(BiodiversityR)
+library(knitr)
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(MASS)
+library(data.table)
+library(factoextra)
+
+```
+
+### All watersheds
+```{r import, include=FALSE, echo=FALSE}
+setwd("C:/Users/snyde/git_repo/occ_portfolio/Portfolio_metrics/Results")
+
+# import portfolio measurements
+metrics <- read.csv("C:/Users/snyde/Dropbox/Resiliency/Marcia/Data/Portfolio_metrics/DD_metric031721.csv")
+# drop first column
+metrics <- metrics[,-1]
+
+# import watershed metrics
+CohoDataSummary <- read_csv("C:/Users/snyde/Dropbox/Resiliency/Marcia/Data/watershed_metrics021621.csv")
+# drop first column
+CohoDataSummary <- CohoDataSummary[,-1]
+
+```
+
+
+```{r correlation, echo=FALSE}
+landscape_raw<-CohoDataSummary[,4:dim(CohoDataSummary)[2]] # drop first 3 columns because character
+cor_matrix<-cor(landscape_raw, method="spearman")
+#write.csv(cor_matrix,"cor_matrix.csv")
+```
+
+Three populations have no HighCritHab_m. While HighCritHab_m had the highest correlation (0.62) with mean spawner abundance, it isn't a great measure of watershed size for the populations with 0 values. The second highest correlation was with TotalLength_m (0.54), which is also from the NMFS critical habitat layer. I drop variables indicating watershed size from analysis (-HighCritHab_m, -HighCritHab_p, -HighIP_m, -Watershed_sqkm, -HighIP_p). Use meters of critical habitat as the variable representing watershed size (TotalLength_m). See file:///L:/Priv/CORFiles/Projects/ACE_CIVA_2.8/Marcia/R_code/OCC_Abundance_Size_Metrics.html for details. 
+
+Since, TotalLength_m is representing watershed size, the other variables are in terms of percent of the watershed area or length rather than area or length.
+
+```{r drop vars, echo=FALSE}
+# subset metrics
+
+landscape<-dplyr::select(landscape_raw, -HighCritHab_m, -HighCritHab_p,-MeanElev_m,
+     -HighIP_m, -Watershed_sqkm, -HighIP_p, -Public_sqkm,
+     -lake_area_km2, -est_area_km2, -wetland_area_km2,
+      -LowGradient_m, -LogDriveLength_m)
+```
+
+Before doing the PCA, I scale the variables by subtracting the mean and dividing by the standard deviation rather than adding one and taking the log as Griffiths et al. 2014 did because negative numbers can't be logged.
+```{r transform watershed covars, include=FALSE, echo=FALSE}
+
+# need to scale and center data
+landscape_z<-scale(landscape, scale=TRUE, center=TRUE)
+```
+
+
+## PCA
+
+```{r prcomp pca}
+# pca
+pca_test<-prcomp(landscape_z, scale=FALSE)
+# loadings can be accessed with $rotation
+#pca_test$rotation # pca loading value used in linear equation to calculate score
+#pca_test$x # pca scores
+# test signifciance of eigen values a different way
+#ordi.monte(data4,ord='pca',dim=3)
+#ordi.scree(pca_test,ord='pca')
+screeplot(pca_test)
+fviz_eig(pca_test)
+
+fviz_pca_ind(pca_test,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+
+fviz_pca_biplot(pca_test, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+                col.ind = "#696969"  # Individuals color
+                )
+
+eig.val <- get_eigenvalue(pca_test)
+eig.val
+
+get_pca_var(pca_test)
+res.var <- get_pca_var(pca_test)
+res.var$contrib        # Contributions to the PCs
+#res.var$coord          # Coordinates
+#res.var$cos2     
+
+```
+
+## PCA interpretation
+Based on eigen values values I use principal components 1-3 in the rest of the script. I think there is some support for PC3 which explains ~6-7% of the variance each but I think a 10% of variance explained is a more robust cut-off.
+
+## Variable loadings
+* The eigen vec function outputs the weights of the variables in the linear equations that define the principal components.
+* "The structure coefficients are simple linear correlation coefficients between the original variables and the principal components. In contrast to the eigenvector coefficients, the structure coefficients are correlations and directly measure the strength of the linear relationship between each variable and each principal component."
+* "Final communalities are the sum of the squared structure correlations and represent the percentage of a variable's variance that is linearly account for by the retained principal components."
+
+```{r pca variable loadings}
+# eigen vectors
+# weights used in the principal component = pca_test$rotation 
+# pca.eigenvec(pca_test,dim=3,digits=3,cutoff=.20) #
+# # structure coefficients
+# pca.structure(pca_test,landscape_z,dim=3,cutoff=.10) # 
+# # variance accounted for in total by retained principal components by adding up all squared structure coefficients of retained principal components
+# pca.communality(pca_test,landscape_z,dim=3)
+```
+
+```{r}
+# library(ggbiplot)
+# ggbiplot::ggbiplot(pca_test)
+```
+
+
+## Biplot of PCA.
+```{r biplot, echo=FALSE, eval=TRUE, include=TRUE}
+#biplot(pca_test)
+landscape_z_df<-as.data.frame(landscape_z) # convert matrix to dataframe
+data5<-cbind(CohoDataSummary$Population, landscape_z_df) # add population column
+#colnames(data5)[1]<-"Population" # rename population column
+pca_4_plot<-prcomp(data5[,2:dim(data5)[2]], scale=FALSE) 
+biplot(pca_4_plot, xlabs=data5[,1],  xlim=c(-0.5,0.5), cex=0.75)
+biplot(pca_4_plot,  xlabs=rep("", 21),  xlim=c(-0.5,0.5), cex=0.75)
+# subset biplot
+PC1<-pca_test$rotation[,1]
+PC2<-pca_test$rotation[,2]
+PC3<-pca_test$rotation[,3]
+
+loadings<-as.data.frame(cbind(PC1, PC2, PC3))
+write.csv(loadings, "C:/Users/snyde/Dropbox/Resiliency/Marcia/Data/Portfolio_metrics/loadings.csv")
+```
+
+## biplot loadings >0.2 PC2
+```{r loadings subset1, echo=FALSE, fig.height=5, fig.width=5}
+# biplot loadings >0.2 PC2
+loadings_20p<-loadings[which(abs(loadings$PC2) >0.2), ]
+loadings_20p_pc3<-loadings[which(abs(loadings$PC3) >0.2), ]
+# biplot loadings >0.2 PC2 or PC3
+loadings_20p2<-loadings[which(abs(loadings$PC2) >0.2 | abs(loadings$PC3) >0.2), ]
+# loading >0.2 PC1
+loadings_20p_PC1<-loadings[which(abs(loadings$PC1) >0.2), ]
+
+```
+
+
+```{r more biplots }
+plot(PC2~PC1, data=loadings_20p, type='n', xlim=c(-0.4, 0.4), ylim=c(-0.4, 0.4))
+text(loadings_20p$PC1,loadings_20p$PC2,label=row.names(loadings_20p),col='blue', pos=c(1,1,1,1,1,1,1,2,4,1 ))
+```
+
+## biplot loadings >0.2 on PC2 or PC3
+```{r biplot subset2, echo=FALSE, fig.height=5, fig.width=5}
+
+
+png("score_biplot_GT2_PC2PC3.png", units="in", height=5, width=5, res=96)
+pc2_pc2_gt0.2 <- plot(PC3~PC2, data=loadings_20p2, type='n', xlim=c(-0.5, 0.4), ylim=c(-0.4, 0.4))
+text(loadings_20p2$PC2,loadings_20p2$PC3,label=row.names(loadings_20p2),col='blue', pos=c(1,1,1,4,1,1,1,4,1,2,1,4,1,2,4,3 )) 
+pc2_pc2_gt0.2
+dev.off()
+pc2_pc2_gt0.2
+### 1 = below
+### 2 = left
+### 3 = above
+### 4 = right
+```
+
+## Biplot of with subset of variables that have > 0.2 loadings weight on PC1 or PC2. 
+```{r biplot subset3, echo=FALSE, fig.height=8, fig.width=8}
+pca_4_plot_subset<-pca_4_plot
+pca_4_plot_subset$rotation<-pca_4_plot_subset$rotation[which(abs(pca_4_plot_subset$rotation[,2])>0.2 | abs(pca_4_plot_subset$rotation[,1])>0.2)  ,]
+biplot(pca_4_plot_subset,  xlabs=data5[,1],  xlim=c(-0.5,0.5), cex=0.75)
+png("score_biplot_subset.png", units="in", height=8, width=8, res=96)
+biplot(pca_4_plot_subset,  xlabs=data5[,1],  xlim=c(-0.5,0.5), cex=0.75)
+dev.off()
+
+pdf("score_biplot_subset.pdf",  height=8, width=8)
+biplot(pca_4_plot_subset,  xlabs=data5[,1],  xlim=c(-0.5,0.5), cex=0.75)
+dev.off()
+```
+
+## Biplot of with subset of variables that have > 0.2 loadings weight on PC2 or PC3. 
+```{r biplot subset4, echo=FALSE, fig.height=8, fig.width=8}
+pca_4_plot_subset<-pca_4_plot
+pca_4_plot_subset$rotation<-pca_4_plot_subset$rotation[which(abs(pca_4_plot_subset$rotation[,3])>0.2 | abs(pca_4_plot_subset$rotation[,2])>0.2)  ,]
+biplot(pca_4_plot_subset,  xlabs=data5[,1],  xlim=c(-0.5,0.5), cex=0.75)
+png("score_biplot_subset.png", units="in", height=8, width=8, res=96)
+biplot(pca_4_plot_subset,  xlabs=data5[,1],  xlim=c(-0.5,0.5), cex=0.75)
+dev.off()
+
+pdf("score_biplot_subset_pc3_pc2.pdf",  height=8, width=8)
+biplot(pca_4_plot_subset,  xlabs=data5[,1],  xlim=c(-0.5,0.5), cex=0.75)
+dev.off()
+```
+
+loadings_20p_PC1
+```{r barplot pc1, echo=FALSE}
+# reverse direction of sign so that positive value indicates positive correlation with Sharpes
+loadings_20p_PC1$PC1_neg<-loadings_20p_PC1$PC1*-1
+# barplot with ggplot of loadings on PC2
+p <-ggplot(loadings_20p_PC1, aes(x=rownames(loadings_20p_PC1), y=PC1_neg))
+p +geom_bar(stat = "identity", fill="steelblue") +
+  theme_minimal() + 
+  theme(axis.text.x  = element_text(angle=45, vjust=0.5, size=14), 
+        axis.title.y = element_text(face="bold", colour="#990000", size=16)) + scale_y_continuous(name="PC1 >abs(0.2)")
+```
+
+```{r barplot pc3 and pc2, echo=FALSE}
+# reverse direction of sign so that positive value indicates positive correlation with Sharpes
+loadings_20p2$PC2_neg<-loadings_20p2$PC2*-1
+# barplot with ggplot of loadings on PC2
+p <-ggplot(loadings_20p2, aes(x=rownames(loadings_20p2), y=PC2_neg))
+p +geom_bar(stat = "identity", fill="steelblue") +
+  theme_minimal() + 
+  theme(axis.text.x  = element_text(angle=45, vjust=0.5, size=14), 
+        axis.title.y = element_text(face="bold", colour="#990000", size=16)) + scale_y_continuous(name="PC2 or PC3 Loadings >abs(0.2)")
+```
+
+## Barplot including variables with loadings on PC2 > 0.2
+```{r barplot pc2, echo=FALSE}
+loadings_20p$PC2_neg<-loadings_20p$PC2 * -1
+# barplot with ggplot of loadings on PC2
+p <-ggplot(loadings_20p, aes(x=rownames(loadings_20p), y=PC2_neg))
+p +geom_bar(stat = "identity", fill="steelblue") +
+  theme_minimal() + 
+  theme(axis.text.x  = element_text(angle=45, vjust=0.5, size=14), 
+        axis.title.y = element_text(face="bold", colour="#990000", size=16)) +  scale_y_continuous(name="PC2 Loadings >abs(0.2)")
+```
+
+
+## Barplot including variables with loadings on PC3 > 0.2
+```{r barplot PC3, echo=FALSE}
+loadings_20p_pc3$PC3_neg<-loadings_20p_pc3$PC3 * -1
+# barplot with ggplot of loadings on PC2
+p <-ggplot(loadings_20p_pc3, aes(x=rownames(loadings_20p_pc3), y=PC3_neg))
+p +geom_bar(stat = "identity", fill="steelblue") +
+  theme_minimal() + 
+  theme(axis.text.x  = element_text(angle=45, vjust=0.5, size=14), 
+        axis.title.y = element_text(face="bold", colour="#990000", size=16))+  scale_y_continuous(name="PC3 Loadings >abs(0.2)")
+```
+
+Convert principal components to scores for each watershed and join tables with CV, DD,with watershed characteristics, and PCA scores.
+```{r pca scores join2, echo=FALSE}
+# grab principal component scores for significant components
+pc1<-pca_test$x[1:21,1]
+pc2<-pca_test$x[1:21,2]
+pc3<-pca_test$x[1:21,3]
+#class(pc1)
+data_pca<-cbind(data5,pc1, pc2, pc3)
+#View(OC_COHO_SharpeRatio_CV)
+data_pca2<-merge(metrics, data_pca, by.x="pops_names", by.y="CohoDataSummary$Population")
+write.csv(data_pca2, "PCA_metrics_scores_031721.csv")
+
+```
+
+```{r pca loadings join, echo=FALSE}
+# grab principal component scores for significant components
+pc1_loadings<-pca_test$rotation[1:27,1]
+pc2_loadings<-pca_test$rotation[1:27,2]
+pc3_loadings<-pca_test$rotation[1:27,3]
+#class(pc1)
+vars1<-names(data5)
+data_pca_loadings<-cbind(vars1,pc1_loadings, pc2_loadings, pc3_loadings)
+#View(OC_COHO_SharpeRatio_CV)
+write.csv(data_pca_loadings, "PCA_metrics_loadings_031721.csv")
+
+```
+
+
+### Test for correlations again between significant PCA components with CV 
+```{r pca correlation w CV and Sharpes2, echo=FALSE}
+#names(data_pca2)
+
+CV_pca1<-cor(data_pca2$CVCurrent_LOO_V , data_pca2$pc1,method= "spearman")
+CV_pca2<-cor(data_pca2$CVCurrent_LOO_V , data_pca2$pc2, method= "spearman")
+CV_pca3<-cor(data_pca2$CVCurrent_LOO_V , data_pca2$pc3, method= "spearman")
+
+```
+
+
+```{r table correlation coefficients2, echo=FALSE}
+
+digits=2
+labels<-c( "PC1", "PC2","PC3")
+results1<-c(CV_pca1, CV_pca2,CV_pca3)
+
+results3<-cbind(labels, results1)
+out_table<-kable(results3, digits=getOption("digits"), col.names=c("Principal component","CVcurrent"))
+out_table
+```
+
+### Test for correlations again between significant PCA components with DD 
+```{r correlation betweeen DD and PCA scores, echo=FALSE}
+#names(data_pca2)
+
+DD_pca1<-cor(data_pca2$DD , data_pca2$pc1,method= "spearman")
+DD_pca2<-cor(data_pca2$DD , data_pca2$pc2, method= "spearman")
+DD_pca3<-cor(data_pca2$DD , data_pca2$pc3, method= "spearman")
+
+```
+
+
+```{r table correlation coefficients DD, echo=FALSE}
+
+digits=2
+labels<-c( "PC1", "PC2","PC3")
+results1<-c(DD_pca1, DD_pca2,DD_pca3)
+
+results3<-cbind(labels, results1)
+out_table<-kable(results3, digits=getOption("digits"), col.names=c("Principal component","DD"))
+out_table
+```
+
+```{r barplot diversity deficit}
+ggplot(metrics, aes(x=pops_names, y = DD))+
+  geom_point()+
+  theme_classic()+
+  theme(axis.text.x  = element_text(angle=45, vjust=0.5, size=14))+
+  xlab(" ")
+
+ggplot(metrics, aes(x=pops_names, y = CVCurrent_LOO_V))+
+  geom_point()+
+  theme_classic()+
+  theme(axis.text.x  = element_text(angle=45, vjust=0.5, size=14))+
+  xlab(" ")+
+  ylab("CV")
+  
+```
+
+
+
+## Plots of Principal components with portfolio metrics.
+```{r PC plots, echo=FALSE, include=TRUE, eval=TRUE, fig.height=5, fig.width=9}
+# par(mfrow=c(3,2), mai = c(0.5, 0.5, 0.2, 0.2))
+# plot(CVcurrent_LOO_V~pc1, data=data_pca2, xlab="PC1")
+# 
+# plot(CVcurrent_LOO_V~pc2, data=data_pca2, xlab="PC2")
+# 
+# plot(CVcurrent_LOO_V~pc3, data=data_pca2, xlab="PC3")
+```
+
+
+Plots of landscape metrics with high structure coefficients on PC2 (>0.2).
+```{r plots, echo=FALSE, fig.height=10, fig.width=7}
+#par(mfrow=c(5,2)) #, mai = c(1.0, 1.0, 0.2, 0.2) # bottom, left, top, right
+# par(mfrow=c(5,2), mai = c(0.5, 1.0, 0.2, 0.2))
+# plot(CVcurrent_LOO_V~MeanAnnualPrecip_mm, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~MeanBFI, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~MeanAugtemps_c, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~Sedimentary_p, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~Latitude, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~CVAugtemps, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~pHatchery_Mean, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~lake_p, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~lake_highCrit_ratio, data=data_pca2)
+# 
+# plot(CVcurrent_LOO_V~LowGradient_p, data=data_pca2)
+
+```
+
